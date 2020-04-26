@@ -24,50 +24,41 @@ class TransactionsRepository {
   }
 
   public getBalance(): Balance {
-    // eslint-disable-next-line prettier/prettier
-    const reducerFactory = (type: 'income' | 'outcome'): ((acc: Transaction, curr: Transaction) => Transaction) => {
-      const reducer = (
-        accTransaction: Transaction,
-        transaction: Transaction,
-      ): Transaction => {
-        return new Transaction({
-          title: '',
-          value:
-            accTransaction.value +
-            (transaction.type === type ? transaction.value : 0),
-          type,
-        });
-      };
+    const { income, outcome } = this.transactions.reduce(
+      (accumulator: Balance, transaction: Transaction) => {
+        switch (transaction.type) {
+          case 'income':
+            accumulator.income += transaction.value;
+            break;
 
-      return reducer;
-    };
+          case 'outcome':
+            accumulator.outcome += transaction.value;
+            break;
 
-    const reducerIncome = reducerFactory('income');
-    const reducerOutcome = reducerFactory('outcome');
-
-    const { value: income } = this.all().reduce(
-      reducerIncome,
-
-      new Transaction({
-        title: '',
-        value: 0,
-        type: 'income',
-      }),
+          default:
+            break;
+        }
+        return accumulator;
+      },
+      {
+        income: 0,
+        outcome: 0,
+        total: 0,
+      },
     );
 
-    const { value: outcome } = this.all().reduce(
-      reducerOutcome,
-      new Transaction({
-        title: '',
-        value: 0,
-        type: 'outcome',
-      }),
-    );
+    const total = income - outcome;
 
-    return { income, outcome, total: income - outcome };
+    return { income, outcome, total };
   }
 
   public create({ title, value, type }: CreateTransactionDTO): Transaction {
+    if (!['income', 'outcome'].includes(type)) {
+      throw Error(
+        "Can't create a transaction that isn't 'income' or 'outcome'",
+      );
+    }
+
     const { total } = this.getBalance();
 
     if (type === 'outcome' && total < value) {
